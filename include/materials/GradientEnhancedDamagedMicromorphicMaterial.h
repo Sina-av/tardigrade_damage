@@ -1,16 +1,6 @@
-/*!
-====================================================================
-|                      GradientEnhancedDamagedMicromorphicMaterial.h                      |
-====================================================================
-| The header file for a class which computes the cauchy stress and |
-| the associated jacobians for a micromorphic  material.           |
---------------------------------------------------------------------
-| Notes: Relies on libraries from the micromorphic_element         |
-|        repository available at bitbucket.org/NateAM2             |
-====================================================================
-*/
 #pragma once
 
+#include <array>
 #include "Material.h"
 #include "MooseException.h"
 #include<balance_equations.h>
@@ -19,6 +9,11 @@
 //Forward declarations
 class GradientEnhancedDamagedMicromorphicMaterial;
 class Function;
+
+using Arr3 = std::array< Real, 3 >;
+using Arr33 = std::array< Arr3, 3 >;
+using Arr333 = std::array< Arr33, 3 >;
+using Arr3333 = std::array< Arr333, 3 >;
 
 template <>
 InputParameters validParams<GradientEnhancedDamagedMicromorphicMaterial>();
@@ -55,69 +50,6 @@ class GradientEnhancedDamagedMicromorphicMaterial : public Material{
         std::string       _model_name;
         bool              _MMS;
 
-        /* //Old variable values */
-        /* //grad u */
-        /* const VariableValue    & _old_u1; */
-        /* const VariableValue    & _old_u2; */
-        /* const VariableValue    & _old_u3; */
-        /* const VariableGradient & _old_grad_u1; */
-        /* const VariableGradient & _old_grad_u2; */
-        /* const VariableGradient & _old_grad_u3; */
-
-        /* //phi */
-        /* const VariableValue    & _old_phi_11; */
-        /* const VariableValue    & _old_phi_22; */
-        /* const VariableValue    & _old_phi_33; */
-        /* const VariableValue    & _old_phi_23; */
-        /* const VariableValue    & _old_phi_13; */
-        /* const VariableValue    & _old_phi_12; */
-        /* const VariableValue    & _old_phi_32; */
-        /* const VariableValue    & _old_phi_31; */
-        /* const VariableValue    & _old_phi_21; */
-
-        /* //grad phi */
-        /* const VariableGradient & _old_grad_phi_11; */
-        /* const VariableGradient & _old_grad_phi_22; */
-        /* const VariableGradient & _old_grad_phi_33; */
-        /* const VariableGradient & _old_grad_phi_23; */
-        /* const VariableGradient & _old_grad_phi_13; */
-        /* const VariableGradient & _old_grad_phi_12; */
-        /* const VariableGradient & _old_grad_phi_32; */
-        /* const VariableGradient & _old_grad_phi_31; */
-        /* const VariableGradient & _old_grad_phi_21; */
-
-
-        //Coupled variables (i.e. u_i,j, phi_ij, and phi_ij,k)
-        //grad u
-        /* const VariableValue    & _u1; */
-        /* const VariableValue    & _u2; */
-        /* const VariableValue    & _u3; */
-        /* const VariableGradient & _grad_u1; */
-        /* const VariableGradient & _grad_u2; */
-        /* const VariableGradient & _grad_u3; */
-
-        /* //phi */
-        /* const VariableValue    & _phi_11; */
-        /* const VariableValue    & _phi_22; */
-        /* const VariableValue    & _phi_33; */
-        /* const VariableValue    & _phi_23; */
-        /* const VariableValue    & _phi_13; */
-        /* const VariableValue    & _phi_12; */
-        /* const VariableValue    & _phi_32; */
-        /* const VariableValue    & _phi_31; */
-        /* const VariableValue    & _phi_21; */
-
-        /* //grad phi */
-        /* const VariableGradient & _grad_phi_11; */
-        /* const VariableGradient & _grad_phi_22; */
-        /* const VariableGradient & _grad_phi_33; */
-        /* const VariableGradient & _grad_phi_23; */
-        /* const VariableGradient & _grad_phi_13; */
-        /* const VariableGradient & _grad_phi_12; */
-        /* const VariableGradient & _grad_phi_32; */
-        /* const VariableGradient & _grad_phi_31; */
-        /* const VariableGradient & _grad_phi_21; */
-
         const std::vector< const VariableGradient * > _grad_disp;
         const std::vector< const VariableGradient * > _grad_disp_old;
 
@@ -127,7 +59,21 @@ class GradientEnhancedDamagedMicromorphicMaterial : public Material{
         const std::vector< const VariableGradient * > _grad_micro_disp_gradient;
         const std::vector< const VariableGradient * > _grad_micro_disp_gradient_old;
 
-        /* const VariableValue & _k; */
+        const VariableValue & _k;
+
+        MaterialProperty< Real > & _k_local;
+
+        MaterialProperty< Arr33 > & _dk_local_dF;
+        /* MaterialProperty< Arr3 > & _dk_local_dw; */
+        /* MaterialProperty< Arr33 > & _dk_local_dgrad_w; */
+        /* MaterialProperty< Real > & _dk_local_dk; */
+
+        MaterialProperty< Real > & _nonlocal_radius;
+
+        std::vector<Real>                           _ge_damage_parameters;
+        MaterialProperty< std::vector< double > > & _ge_damage_statevars;
+        const MaterialProperty< std::vector< double > > & _ge_damage_statevars_old;
+
 
         //Fundamental deformation measures
         MaterialProperty<std::vector<double>> & _deformation_gradient;

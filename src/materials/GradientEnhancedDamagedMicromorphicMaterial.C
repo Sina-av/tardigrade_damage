@@ -1,22 +1,11 @@
-/*!
-====================================================================
-|                     GradientEnhancedDamagedMicromorphicMaterial.cpp                     |
-====================================================================
-| The source file for a class which computes the PK2 stress and    |
-| the associated jacobians for a micromorphic material.            |
---------------------------------------------------------------------
-| Notes: Relies on libraries from the micromorphic_element         |
-|        repository available at bitbucket.org/NateAM2             |
-====================================================================
-*/
-
-
 #include "GradientEnhancedDamagedMicromorphicMaterial.h"
+#include "GMCDPFiniteStrainDamage.h"
 
 //MOOSE includes
 #include "Function.h"
 
 registerMooseObject("tardigradeApp", GradientEnhancedDamagedMicromorphicMaterial);
+
 
 template<>
 InputParameters
@@ -30,9 +19,11 @@ validParams<GradientEnhancedDamagedMicromorphicMaterial>(){
     params.addRequiredParam<std::string>(
         "model_name", "The material model name");
 
+    params.addRequiredParam<std::vector<Real>>( "gradient_enhanced_damage_fparameters", "The vector of floating point material parameters for the gradient-enhanced damage");
+
     params.addRequiredCoupledVar( "displacements", "The 3 displacement components" );
     params.addRequiredCoupledVar( "micro_displacement_gradient", "The 9 components of the micro displacement gradient" );
-    /* params.addRequiredCoupledVar( "nonlocal_damage", "The nonlocal damage variable" ); */
+    params.addRequiredCoupledVar( "nonlocal_damage", "The nonlocal damage variable" );
 
     // The state variable array
     params.addParam< int >(
@@ -84,6 +75,8 @@ void GradientEnhancedDamagedMicromorphicMaterial::initQpStatefulProperties(){
 
     _SDVS[ _qp ] = std::vector< Real >(_n_SDVS, 0 );
 
+    _ge_damage_statevars [_qp] = std::vector< Real >(2, 0 );
+
     return;
 }
 
@@ -99,6 +92,10 @@ GradientEnhancedDamagedMicromorphicMaterial::GradientEnhancedDamagedMicromorphic
     /* _MMS(getParam<bool>("MMS")), */
     _n_SDVS( getParam< int >( "number_SDVS" ) ),
 
+    _ge_damage_parameters(getParam<std::vector<Real>>("gradient_enhanced_damage_fparameters")),
+    _ge_damage_statevars( declareProperty< std::vector< double > > ( "ge_damage_statevars" ) ),
+    _ge_damage_statevars_old( getMaterialPropertyOld< std::vector< double > >( "ge_damage_statevars" ) ),
+
     _grad_disp( coupledGradients( "displacements" ) ),
     _grad_disp_old( coupledGradientsOld( "displacements" ) ),
 
@@ -108,7 +105,10 @@ GradientEnhancedDamagedMicromorphicMaterial::GradientEnhancedDamagedMicromorphic
     _grad_micro_disp_gradient( coupledGradients( "micro_displacement_gradient" ) ),
     _grad_micro_disp_gradient_old( coupledGradientsOld( "micro_displacement_gradient" ) ),
 
-    /* _k( coupledValue( "nonlocal_damage" ) ), */
+    _k( coupledValue( "nonlocal_damage" ) ),
+    _k_local( declareProperty<Real>("k_local") ),
+    _dk_local_dF( declareProperty< Arr33 >( "dk_local_dF" ) ),
+    _nonlocal_radius( declareProperty<Real>("nonlocal_radius") ),
 
     _deformation_gradient(declareProperty<std::vector<double>>("MM_deformation_gradient")),
     _micro_deformation(declareProperty<std::vector<double>>("micro_deformation")),
@@ -285,6 +285,26 @@ void GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties(){
 //        std::cout << "SDVS pre model evaluation:\n";
 //        vectorTools::print( _SDVS[ _qp ] );
 //    }
+//
+//
+    using vecReal = std::vector<double>;
+    using vecVecReal = std::vector<vecReal>;
+
+
+    vecReal effPK2 = _PK2[_qp];
+    vecReal effSigma = _SIGMA[_qp];
+    vecReal effM = _M[_qp];
+
+    vecVecReal  dEffPK2_dGrad_u     = _DPK2Dgrad_u[_qp],   
+                dEffPK2_dPhi        = _DPK2Dphi[_qp],     
+                dEffPK2_dGrad_phi   = _DPK2Dgrad_phi[_qp],
+                dEffSigma_dGrad_u   = _DSIGMADgrad_u[_qp], 
+                dEffSigma_dPhi      = _DSIGMADphi[_qp],   
+                dEffSigma_dGrad_phi = _DSIGMADgrad_phi[_qp],
+                dEffM_dGrad_u       = _DMDgrad_u[_qp],     
+                dEffM_dPhi          = _DMDphi[_qp],       
+                dEffM_dGrad_phi     = _DMDgrad_phi[_qp];
+
 
     int errorCode = material->evaluate_model( time, _fparams,
                                               __grad_u, __phi, __grad_phi,
@@ -292,10 +312,15 @@ void GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties(){
                                               _SDVS[ _qp ],
                                               ADD_DOF,            ADD_grad_DOF,
                                               old_ADD_DOF,        old_ADD_grad_DOF,
-                                              _PK2[_qp],           _SIGMA[_qp],        _M[_qp],
-                                              _DPK2Dgrad_u[_qp],   _DPK2Dphi[_qp],     _DPK2Dgrad_phi[_qp],
-                                              _DSIGMADgrad_u[_qp], _DSIGMADphi[_qp],   _DSIGMADgrad_phi[_qp],
-                                              _DMDgrad_u[_qp],     _DMDphi[_qp],       _DMDgrad_phi[_qp],
+                                              effPK2, effSigma, effM,
+                                              dEffPK2_dGrad_u, dEffPK2_dPhi, dEffPK2_dGrad_phi,
+                                              dEffSigma_dGrad_u, dEffSigma_dPhi, dEffSigma_dGrad_phi,
+                                              dEffM_dGrad_u, dEffM_dPhi, dEffM_dGrad_phi,
+
+                                              /* _PK2[_qp],           _SIGMA[_qp],        _M[_qp], */
+                                              /* _DPK2Dgrad_u[_qp],   _DPK2Dphi[_qp],     _DPK2Dgrad_phi[_qp], */
+                                              /* _DSIGMADgrad_u[_qp], _DSIGMADphi[_qp],   _DSIGMADgrad_phi[_qp], */
+                                              /* _DMDgrad_u[_qp],     _DMDphi[_qp],       _DMDgrad_phi[_qp], */
                                               _ADD_TERMS[_qp],     _ADD_JACOBIANS[_qp], output_message
 #ifdef DEBUG_MODE
                                               , debug
@@ -324,10 +349,127 @@ void GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties(){
      *       previousPlasticMicroGradient ]
      *
      * */
-    const double* ptr_Fp = &_SDVS[_qp][7];
-    const double* ptr_dFp_dF = &_ADD_JACOBIANS[_qp][0][0];
-   
+    const double* ptr_Fp_np  = &_SDVS[_qp][10];
+    const double* ptr_Fp_n   = &_old_SDVS[_qp][10];
 
+    const auto& dFp_dF = _ADD_JACOBIANS[_qp][0];
+
+    // we don't use Eigen's default ColMajor layout but rather RowMajor for convenient interfacing with STL
+    
+    using RMMatrix3d          = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>;
+    using RMMapMatrix3d       = Eigen::Map< Eigen::Matrix<double, 3, 3, Eigen::RowMajor> >;
+    using RMMapConstMatrix3d  = Eigen::Map< const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> >;
+    using Vector9d          = Eigen::Matrix<double, 9, 1>;
+    using MapVector9d       = Eigen::Map< Eigen::Matrix<double, 9, 1> > ;
+    using RMMapMatrix9d       = Eigen::Map< Eigen::Matrix<double, 9, 9, Eigen::RowMajor> > ;
+    using RMMapConstMatrix9d  = Eigen::Map< const Eigen::Matrix<double, 9, 9, Eigen::RowMajor> > ;
+
+    const Real alphaDNonLocal = 0.0;
+
+    int i = 0;
+    const auto& As = _ge_damage_parameters[i++];
+    const auto& softeningModulus = _ge_damage_parameters[i++];
+    const auto& weightingParameter = _ge_damage_parameters[i++];
+    const auto& maxDamage = _ge_damage_parameters[i++];
+    
+    Marmot::Materials::GMCDPFiniteStrainDamage damage( { As, softeningModulus, weightingParameter, maxDamage } );
+
+    const RMMatrix3d Fp_np = RMMapConstMatrix3d ( ptr_Fp_np ) + RMMatrix3d::Identity();
+    const RMMatrix3d Fp_n  = RMMapConstMatrix3d ( ptr_Fp_n )  + RMMatrix3d::Identity();
+
+    const RMMatrix3d invFp_n = Fp_n.inverse();
+    const RMMatrix3d deltaFp = Fp_np * invFp_n;
+
+    const auto& alphaDLocalOld = _ge_damage_statevars_old[_qp][0] ;
+    auto& alphaDLocal = _ge_damage_statevars[_qp][0] ;
+
+    const auto& omegaOld = _ge_damage_statevars_old[_qp][1] ;
+    auto& omega = _ge_damage_statevars[_qp][1] ;
+
+    const auto damageResult = damage.computeDamage( alphaDLocalOld, alphaDNonLocal, deltaFp );
+
+    alphaDLocal = damageResult.alphaLocal;
+    omega = damageResult.omega;
+
+
+    // dDeltaFP_dF(i_, i__, j,J) = dFp_np_dF__(i_,I,j,J) * inv( Fp_n )__(I, i__ )
+    Arr3333 dDeltaFp_dF_ = { { { { } } } };
+    for (int i_ = 0; i_ < 3; ++i_) 
+      for (int i__ = 0; i__ < 3; ++i__) 
+        for (int j = 0; j < 3; ++j) 
+          for (int J = 0; J < 3; ++J) 
+            for (int I = 0; I < 3; ++I) 
+              dDeltaFp_dF_[i_][i__][j][J] += dFp_dF[i_*3 + I][j * 3 + J] * invFp_n ( I, i__);
+    const RMMapConstMatrix9d dDeltaFp_dF ( &dDeltaFp_dF_[0][0][0][0] );
+
+
+    RMMatrix3d dAlphaLocal_dDeltaFp_ = damageResult.dAlphaLocal_dDeltaFp;
+    MapVector9d dAlphaLocal_dDeltaFp   (dAlphaLocal_dDeltaFp_.data());
+
+    const Vector9d dAlphaLocal_dF  = dAlphaLocal_dDeltaFp.transpose() * dDeltaFp_dF;
+    const Vector9d dOmega_dF       = damageResult.dOmega_dAlphaLocal * dAlphaLocal_dF;
+
+    _k_local[_qp] = alphaDLocal;
+    MapVector9d ( &_dk_local_dF[_qp][0][0] ) << dAlphaLocal_dF;
+
+    /* _dk_local_dF[_qp] = { { 0 } }; */
+    /* for (int i = 0; i < 3; ++i) */ 
+    /*   for (int I = 0; I < 3; ++I) */ 
+    /*     for (int i_ = 0; i_ < 3; ++i_) */ 
+    /*       for (int i__ = 0; i__ < 3; ++i__) */ 
+    /*         _dk_local_dF[_qp][i][I] += damageResult.dAlphaLocal_dDeltaFp(i_,i__) * dDeltaFp_dF[i_][i__][i][I]; */
+
+
+
+    /* MapVector9d _effPK2                        ( &effPK2[0] ); */
+    /* MapVector9d _effSigma                      ( &effSigma[0] ); */
+    /* MapVector9d _effM                          ( &effM[0] ); */
+
+    /* MapMatrix9d _dEffPK2_dGrad_u               (& dEffPK2_dGrad_u[0][0]); */
+    /* MapMatrix9d _dEffPK2_dPhi                  (& dEffPK2_dPhi[0][0]); */
+    /* MapMatrix9d _dEffPK2_dGrad_phi             (& dEffPK2_dGrad_phi[0][0]); */
+
+    /* MapMatrix9d _dEffSigma_dGrad_u             (& dEffSigma_dGrad_u;[0][0]); */
+    /* MapMatrix9d _dEffSigma_dPhi                (& dEffSigma_dPhi[0][0]); */
+    /* MapMatrix9d _dEffSigma_dGrad_phi           (& dEffSigma_dGrad_phi[0][0]); */
+
+    /* MapMatrix9d _dEffM_dGrad_u                 (& dEffM_dGrad_u[0][0]); */
+    /* MapMatrix9d _dEffM_dPhi                    (& dEffM_dPhi[0][0]); */
+    /* MapMatrix9d _dEffM_dGrad_phi               (& dEffM_dGrad_phi[0][0]); */
+
+    /* Vector9d dOmega_dDeformationGradient = damageResult.dOmega_dAlphaLocal * dAlphaLocal_dDeltaFp */
+
+    /* const Vector9d PK2              = ( 1 - omega ) * _effPK2; */
+    /* const Vector9d Sigma            = ( 1 - omega ) * _effPSigma; */
+    /* const Vector9d M                = ( 1 - omega ) * _effM; */
+
+    /* const Vector9d dPK2_dGrad_u     = ( 1 - omega ) * _dEffPK2_dGrad_u   - effPK2_ * dOmega_dDeformationGradient.tranpose(); */
+    /* const Vector9d dPK2_dPhi        = ( 1 - omega ) * _dEffPK2_dPhi ; */
+    /* const Vector9d dPK2_dGrad_phi   = ( 1 - omega ) * _dEffPK2_dGrad_phi */ 
+
+    /* const Vector9d dSigma_dGrad_u   = ( 1 - omega ) * _dEffSigma_dGrad_u - effSigma_ * dOmega_dDeformationGradient.tranpose(); */
+    /* const Vector9d dSigma_dPhi      = ( 1 - omega ) * _dEffSigma_dPhi ; */
+    /* const Vector9d dSigma_dGrad_phi = ( 1 - omega ) * _dEffSigma_dGrad_phi */ 
+
+    /* const Vector9d dM_dGrad_u       = ( 1 - omega ) * _dEffM_dGrad_u     - effM_ * dOmega_dDeformationGradient.tranpose(); */
+    /* const Vector9d dM_dPhi          = ( 1 - omega ) * _dEffM_dPhi ; */
+    /* const Vector9d dM_dGrad_phi     = ( 1 - omega ) * _dEffM_dGrad_phi */ 
+
+    _PK2[_qp] = effPK2;
+    _SIGMA[_qp] = effSigma;
+    _M[_qp] = effM;
+    
+    _DPK2Dgrad_u[_qp]       = dEffPK2_dGrad_u;
+    _DPK2Dphi[_qp]          = dEffPK2_dPhi;
+    _DPK2Dgrad_phi[_qp]     = dEffPK2_dGrad_phi;
+    
+    _DSIGMADgrad_u[_qp]     = dEffSigma_dGrad_u; 
+    _DSIGMADphi[_qp]        = dEffSigma_dPhi;
+    _DSIGMADgrad_phi[_qp]   = dEffSigma_dGrad_phi;
+    
+    _DMDgrad_u[_qp]         = dEffM_dGrad_u;
+    _DMDphi[_qp]            = dEffM_dPhi;
+    _DMDgrad_phi[_qp]       = dEffM_dGrad_phi;
 
     //TODO: Add in function support for the additional DOF and their gradients.        
 
