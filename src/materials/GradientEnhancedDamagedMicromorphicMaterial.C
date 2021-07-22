@@ -6,6 +6,33 @@
 
 registerMooseObject("tardigradeApp", GradientEnhancedDamagedMicromorphicMaterial);
 
+using vecReal = std::vector<double>;
+using vecVecReal = std::vector<vecReal>;
+
+
+template <int nRows, int nCols>
+Eigen::Matrix<Real, nRows, nCols, Eigen::RowMajor> copyVecVecToMatrix  ( const vecVecReal& vecvec)
+{
+    Eigen::Matrix<Real, nRows, nCols, Eigen::RowMajor> theMatrix;
+
+    for(int i = 0; i < nRows; i++)
+        theMatrix.row(i) = Eigen::Map< const Eigen::Matrix<Real, nCols, 1 > > (vecvec[i].data() );
+    return theMatrix;
+};
+
+
+template <int nRows, int nCols>
+auto copyMatrixToVecVec = [] ( const Eigen::Matrix<Real, nRows, nCols, Eigen::RowMajor>& theMatrix)
+{
+    vecVecReal theVecVec ( nRows  );
+    for(int i = 0; i < nRows; i++){
+        theVecVec[i].resize(nCols);
+        Eigen::Map< Eigen::Matrix<Real, nCols, 1 > > (theVecVec[i].data() ) = theMatrix.row(i);
+    }
+    return theVecVec;
+};
+
+
 
 template<>
 InputParameters
@@ -108,6 +135,7 @@ GradientEnhancedDamagedMicromorphicMaterial::GradientEnhancedDamagedMicromorphic
     _k( coupledValue( "nonlocal_damage" ) ),
     _k_local( declareProperty<Real>("k_local") ),
     _dk_local_dF( declareProperty< Arr33 >( "dk_local_dF" ) ),
+    _domega_dk( declareProperty<Real>("domega_dk") ),
     _nonlocal_radius( declareProperty<Real>("nonlocal_radius") ),
 
     _deformation_gradient(declareProperty<std::vector<double>>("MM_deformation_gradient")),
@@ -287,8 +315,6 @@ void GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties(){
 //    }
 //
 //
-    using vecReal = std::vector<double>;
-    using vecVecReal = std::vector<vecReal>;
 
 
     vecReal effPK2 = _PK2[_qp];
@@ -357,20 +383,27 @@ void GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties(){
     // we don't use Eigen's default ColMajor layout but rather RowMajor for convenient interfacing with STL
     
     using RMMatrix3d          = Eigen::Matrix<double, 3, 3, Eigen::RowMajor>;
+    using RMMatrix9d          = Eigen::Matrix<double, 9, 9, Eigen::RowMajor>;
+    using RMMatrix9_27d       = Eigen::Matrix<double, 9, 27, Eigen::RowMajor>;
+    using RMMatrix27d         = Eigen::Matrix<double, 27, 27, Eigen::RowMajor>;
+    using RMMatrix27_9d       = Eigen::Matrix<double, 27, 9, Eigen::RowMajor>;
     using RMMapMatrix3d       = Eigen::Map< Eigen::Matrix<double, 3, 3, Eigen::RowMajor> >;
     using RMMapConstMatrix3d  = Eigen::Map< const Eigen::Matrix<double, 3, 3, Eigen::RowMajor> >;
-    using Vector9d          = Eigen::Matrix<double, 9, 1>;
-    using MapVector9d       = Eigen::Map< Eigen::Matrix<double, 9, 1> > ;
+    using Vector9d            = Eigen::Matrix<double, 9, 1>;
+    using Vector27d           = Eigen::Matrix<double, 27, 1>;
+    using MapVector9d         = Eigen::Map< Vector9d > ;
+    using MapVector27d        = Eigen::Map< Vector27d > ;
+    using MapConstVector9d    = Eigen::Map< const Eigen::Matrix<double, 9, 1> > ;
     using RMMapMatrix9d       = Eigen::Map< Eigen::Matrix<double, 9, 9, Eigen::RowMajor> > ;
     using RMMapConstMatrix9d  = Eigen::Map< const Eigen::Matrix<double, 9, 9, Eigen::RowMajor> > ;
 
-    const Real alphaDNonLocal = 0.0;
+    const Real alphaDNonLocal = _k[_qp];
 
     int i = 0;
-    const auto& As = _ge_damage_parameters[i++];
-    const auto& softeningModulus = _ge_damage_parameters[i++];
-    const auto& weightingParameter = _ge_damage_parameters[i++];
-    const auto& maxDamage = _ge_damage_parameters[i++];
+    const auto& As                  = _ge_damage_parameters[i++];
+    const auto& softeningModulus    = _ge_damage_parameters[i++];
+    const auto& weightingParameter  = _ge_damage_parameters[i++];
+    const auto& maxDamage           = _ge_damage_parameters[i++];
     
     Marmot::Materials::GMCDPFiniteStrainDamage damage( { As, softeningModulus, weightingParameter, maxDamage } );
 
@@ -390,7 +423,6 @@ void GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties(){
 
     alphaDLocal = damageResult.alphaLocal;
     omega = damageResult.omega;
-
 
     // dDeltaFP_dF(i_, i__, j,J) = dFp_np_dF__(i_,I,j,J) * inv( Fp_n )__(I, i__ )
     Arr3333 dDeltaFp_dF_ = { { { { } } } };
@@ -412,72 +444,60 @@ void GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties(){
     _k_local[_qp] = alphaDLocal;
     MapVector9d ( &_dk_local_dF[_qp][0][0] ) << dAlphaLocal_dF;
 
-    /* _dk_local_dF[_qp] = { { 0 } }; */
-    /* for (int i = 0; i < 3; ++i) */ 
-    /*   for (int I = 0; I < 3; ++I) */ 
-    /*     for (int i_ = 0; i_ < 3; ++i_) */ 
-    /*       for (int i__ = 0; i__ < 3; ++i__) */ 
-    /*         _dk_local_dF[_qp][i][I] += damageResult.dAlphaLocal_dDeltaFp(i_,i__) * dDeltaFp_dF[i_][i__][i][I]; */
+    _domega_dk[_qp] = damageResult.dOmega_dAlphaNonLocal;
+
+    MapVector9d _effPK2                    ( &effPK2[0] );
+    MapVector9d _effSigma                  ( &effSigma[0] );
+    MapVector27d _effM                     ( &effM[0] );
+
+    const auto _dEffPK2_dGrad_u            = copyVecVecToMatrix<9,9>( dEffPK2_dGrad_u );
+    const auto _dEffPK2_dPhi               = copyVecVecToMatrix<9,9>( dEffPK2_dPhi);
+    const auto _dEffPK2_dGrad_phi          = copyVecVecToMatrix<9,27>( dEffPK2_dGrad_phi);
+
+    const auto _dEffSigma_dGrad_u          = copyVecVecToMatrix<9,9>( dEffSigma_dGrad_u);
+    const auto _dEffSigma_dPhi             = copyVecVecToMatrix<9,9>( dEffSigma_dPhi);
+    const auto _dEffSigma_dGrad_phi        = copyVecVecToMatrix<9,27>( dEffSigma_dGrad_phi);
+
+    const auto _dEffM_dGrad_u              = copyVecVecToMatrix<27,9>( dEffM_dGrad_u);
+    const auto _dEffM_dPhi                 = copyVecVecToMatrix<27,9>( dEffM_dPhi);
+    const auto _dEffM_dGrad_phi            = copyVecVecToMatrix<27,27>( dEffM_dGrad_phi);
+
+    Vector9d dOmega_dDeformationGradient = damageResult.dOmega_dAlphaLocal * dAlphaLocal_dDeltaFp;
+
+    const Vector9d PK2                      = ( 1 - omega ) * _effPK2;
+    const Vector9d Sigma                    = ( 1 - omega ) * _effSigma;
+    const Vector27d M                       = ( 1 - omega ) * _effM;
+
+    const RMMatrix9d dPK2_dGrad_u           = ( 1 - omega ) * _dEffPK2_dGrad_u   - _effPK2 * dOmega_dDeformationGradient.transpose();
+    const RMMatrix9d dPK2_dPhi              = ( 1 - omega ) * _dEffPK2_dPhi;
+    const RMMatrix9_27d dPK2_dGrad_phi      = ( 1 - omega ) * _dEffPK2_dGrad_phi;
+
+    const RMMatrix9d dSigma_dGrad_u         = ( 1 - omega ) * _dEffSigma_dGrad_u - _effSigma * dOmega_dDeformationGradient.transpose();
+    const RMMatrix9d dSigma_dPhi            = ( 1 - omega ) * _dEffSigma_dPhi;
+    const RMMatrix9_27d dSigma_dGrad_phi    = ( 1 - omega ) * _dEffSigma_dGrad_phi;
+
+    const RMMatrix27_9d dM_dGrad_u          = ( 1 - omega ) * _dEffM_dGrad_u     - _effM * dOmega_dDeformationGradient.transpose();
+    const RMMatrix27_9d dM_dPhi             = ( 1 - omega ) * _dEffM_dPhi;
+    const RMMatrix27d dM_dGrad_phi          = ( 1 - omega ) * _dEffM_dGrad_phi;
 
 
-
-    /* MapVector9d _effPK2                        ( &effPK2[0] ); */
-    /* MapVector9d _effSigma                      ( &effSigma[0] ); */
-    /* MapVector9d _effM                          ( &effM[0] ); */
-
-    /* MapMatrix9d _dEffPK2_dGrad_u               (& dEffPK2_dGrad_u[0][0]); */
-    /* MapMatrix9d _dEffPK2_dPhi                  (& dEffPK2_dPhi[0][0]); */
-    /* MapMatrix9d _dEffPK2_dGrad_phi             (& dEffPK2_dGrad_phi[0][0]); */
-
-    /* MapMatrix9d _dEffSigma_dGrad_u             (& dEffSigma_dGrad_u;[0][0]); */
-    /* MapMatrix9d _dEffSigma_dPhi                (& dEffSigma_dPhi[0][0]); */
-    /* MapMatrix9d _dEffSigma_dGrad_phi           (& dEffSigma_dGrad_phi[0][0]); */
-
-    /* MapMatrix9d _dEffM_dGrad_u                 (& dEffM_dGrad_u[0][0]); */
-    /* MapMatrix9d _dEffM_dPhi                    (& dEffM_dPhi[0][0]); */
-    /* MapMatrix9d _dEffM_dGrad_phi               (& dEffM_dGrad_phi[0][0]); */
-
-    /* Vector9d dOmega_dDeformationGradient = damageResult.dOmega_dAlphaLocal * dAlphaLocal_dDeltaFp */
-
-    /* const Vector9d PK2              = ( 1 - omega ) * _effPK2; */
-    /* const Vector9d Sigma            = ( 1 - omega ) * _effPSigma; */
-    /* const Vector9d M                = ( 1 - omega ) * _effM; */
-
-    /* const Vector9d dPK2_dGrad_u     = ( 1 - omega ) * _dEffPK2_dGrad_u   - effPK2_ * dOmega_dDeformationGradient.tranpose(); */
-    /* const Vector9d dPK2_dPhi        = ( 1 - omega ) * _dEffPK2_dPhi ; */
-    /* const Vector9d dPK2_dGrad_phi   = ( 1 - omega ) * _dEffPK2_dGrad_phi */ 
-
-    /* const Vector9d dSigma_dGrad_u   = ( 1 - omega ) * _dEffSigma_dGrad_u - effSigma_ * dOmega_dDeformationGradient.tranpose(); */
-    /* const Vector9d dSigma_dPhi      = ( 1 - omega ) * _dEffSigma_dPhi ; */
-    /* const Vector9d dSigma_dGrad_phi = ( 1 - omega ) * _dEffSigma_dGrad_phi */ 
-
-    /* const Vector9d dM_dGrad_u       = ( 1 - omega ) * _dEffM_dGrad_u     - effM_ * dOmega_dDeformationGradient.tranpose(); */
-    /* const Vector9d dM_dPhi          = ( 1 - omega ) * _dEffM_dPhi ; */
-    /* const Vector9d dM_dGrad_phi     = ( 1 - omega ) * _dEffM_dGrad_phi */ 
-
-    _PK2[_qp] = effPK2;
-    _SIGMA[_qp] = effSigma;
-    _M[_qp] = effM;
+    _PK2[_qp].resize(9);
+    _SIGMA[_qp].resize(9);
+    _M[_qp].resize(27);
+    MapVector9d (_PK2[_qp].data() )         = PK2.transpose();
+    MapVector9d (_SIGMA[_qp].data() )       = Sigma.transpose();
+    MapVector27d (_M[_qp].data() )          = M.transpose();
     
-    _DPK2Dgrad_u[_qp]       = dEffPK2_dGrad_u;
-    _DPK2Dphi[_qp]          = dEffPK2_dPhi;
-    _DPK2Dgrad_phi[_qp]     = dEffPK2_dGrad_phi;
+    _DPK2Dgrad_u[_qp]                       = copyMatrixToVecVec < 9, 9 > ( dPK2_dGrad_u );
+    _DPK2Dphi[_qp]                          = copyMatrixToVecVec < 9, 9 > ( dPK2_dPhi ) ;
+    _DPK2Dgrad_phi[_qp]                     = copyMatrixToVecVec < 9, 27 > ( dPK2_dGrad_phi );
     
-    _DSIGMADgrad_u[_qp]     = dEffSigma_dGrad_u; 
-    _DSIGMADphi[_qp]        = dEffSigma_dPhi;
-    _DSIGMADgrad_phi[_qp]   = dEffSigma_dGrad_phi;
+    _DSIGMADgrad_u[_qp]                     = copyMatrixToVecVec < 9, 9 > ( dSigma_dGrad_u );
+    _DSIGMADphi[_qp]                        = copyMatrixToVecVec < 9, 9 > ( dSigma_dPhi );
+    _DSIGMADgrad_phi[_qp]                   = copyMatrixToVecVec < 9, 27 > ( dSigma_dGrad_phi );
     
-    _DMDgrad_u[_qp]         = dEffM_dGrad_u;
-    _DMDphi[_qp]            = dEffM_dPhi;
-    _DMDgrad_phi[_qp]       = dEffM_dGrad_phi;
-
-    //TODO: Add in function support for the additional DOF and their gradients.        
+    _DMDgrad_u[_qp]                         = copyMatrixToVecVec < 27, 9 > ( dM_dGrad_u );
+    _DMDphi[_qp]                            = copyMatrixToVecVec < 27, 9 > ( dM_dPhi );
+    _DMDgrad_phi[_qp]                       = copyMatrixToVecVec < 27, 27 > ( dM_dGrad_phi );
 
 }
-
-void computeGradientDamage(double* omega, double* dOmega_dPlasticDeformationGradient, double* plasticDeformationGradient, double* gradientDamageMaterialParameters, double* time, double* gradientDamageStateVars)
-{
-
-
-}
-

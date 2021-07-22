@@ -19,17 +19,6 @@ template <>
 InputParameters validParams<GradientEnhancedDamagedMicromorphicMaterial>();
 
 class GradientEnhancedDamagedMicromorphicMaterial : public Material{
-    /*!
-    ==============================
-    |    GradientEnhancedDamagedMicromorphicMaterial    |
-    ==============================
-
-    Translation of the micromorphic_linear_elasticity library 
-    available in the micromorphic_element repository for use 
-    in MOOSE. More complete details of this model can be found 
-    there.
-
-    */
 
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -64,9 +53,7 @@ class GradientEnhancedDamagedMicromorphicMaterial : public Material{
         MaterialProperty< Real > & _k_local;
 
         MaterialProperty< Arr33 > & _dk_local_dF;
-        /* MaterialProperty< Arr3 > & _dk_local_dw; */
-        /* MaterialProperty< Arr33 > & _dk_local_dgrad_w; */
-        /* MaterialProperty< Real > & _dk_local_dk; */
+        MaterialProperty< Real > & _domega_dk;
 
         MaterialProperty< Real > & _nonlocal_radius;
 

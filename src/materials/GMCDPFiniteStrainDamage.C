@@ -167,7 +167,7 @@ GMCDPFiniteStrainDamage::computeDamage(double alphaLocal, double alphaNonLocal) 
 std::pair<double, double>
 GMCDPFiniteStrainDamage::omega(double alphaWeighted) const
 {
-  if (alphaWeighted < 0)
+  if (alphaWeighted <= 1e-15)
     return {0.0, 0.0};
 
   const double omega = 1 - std::exp(-alphaWeighted / modelParameters.softeningModulus);

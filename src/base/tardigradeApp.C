@@ -29,6 +29,9 @@ tardigradeApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
   /* register custom execute flags, action syntax, etc. here */
   s.registerActionSyntax( "GradientEnhancedDamagedMicromorphicContinuumAction",
                           "GradientEnhancedDamagedMicromorphicContinuum/*" );
+
+  s.registerActionSyntax( "MicromorphicContinuumAction",
+                          "MicromorphicContinuum/*" );
 }
 
 void

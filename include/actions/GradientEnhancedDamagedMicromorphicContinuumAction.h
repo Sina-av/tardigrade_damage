@@ -15,5 +15,6 @@ protected:
 
   void addKernels();
   void addMaterial();
+  void addGradientEnhancedMicromorphicDamageKernel(const std::string& gradient_enhanced_damage_kernel);
 
 };

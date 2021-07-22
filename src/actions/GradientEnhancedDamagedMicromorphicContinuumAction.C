@@ -36,12 +36,8 @@ GradientEnhancedDamagedMicromorphicContinuumAction::act()
 }
 
 void
-GradientEnhancedDamagedMicromorphicContinuumAction::addKernels()
+GradientEnhancedDamagedMicromorphicContinuumAction::addGradientEnhancedMicromorphicDamageKernel(const std::string& gradient_enhanced_damage_kernel)
 {
-
-  MicromorphicContinuumAction::act();
-
-  std::string gradient_enhanced_damage_kernel( "GradientEnhancedMicromorphicDamage" );
   InputParameters gradient_enhanced_damage_kernel_params = _factory.getValidParams( gradient_enhanced_damage_kernel );
 
   gradient_enhanced_damage_kernel_params.applyParameters( parameters(), excludedParameters );
@@ -52,6 +48,17 @@ GradientEnhancedDamagedMicromorphicContinuumAction::addKernels()
       getParam< std::vector< VariableName > >( "nonlocal_damage" )[0];
 
   _problem->addKernel( gradient_enhanced_damage_kernel, kernel_name, gradient_enhanced_damage_kernel_params );
+}
+
+void
+GradientEnhancedDamagedMicromorphicContinuumAction::addKernels()
+{
+
+  MicromorphicContinuumAction::addInternalForceKernels("GradientEnhancedDamagedInternalForce");
+
+  MicromorphicContinuumAction::addInternalCoupleKernels("GradientEnhancedDamagedInternalCouple");
+
+  addGradientEnhancedMicromorphicDamageKernel( "GradientEnhancedMicromorphicDamage" );
 
 }
 

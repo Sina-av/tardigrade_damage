@@ -23,9 +23,6 @@ GradientEnhancedMicromorphicDamage::GradientEnhancedMicromorphicDamage(
     _k_local( getMaterialPropertyByName< Real >( _base_name + "k_local" ) ),
     _nonlocal_radius( getMaterialPropertyByName< Real >( _base_name + "nonlocal_radius" ) ),
     _dk_local_dF( getMaterialPropertyByName< Arr33 >( _base_name + "dk_local_dF" ) ),
-    /* _dk_local_dw( getMaterialPropertyByName< Arr3 >( _base_name + "dk_local_dw" ) ), */
-    /* _dk_local_dgrad_w( getMaterialPropertyByName< Arr33 >( _base_name + "dk_local_dgrad_w" ) ), */
-    /* _dk_local_dk( getMaterialPropertyByName< Real >( _base_name + "dk_local_dk" ) ), */
     _ndisp( coupledComponents( "displacements" ) ),
     _disp_var( _ndisp ),
     _nmicro_disp_gradient( coupledComponents( "micro_displacement_gradient" ) ),
@@ -65,7 +62,6 @@ GradientEnhancedMicromorphicDamage::computeQpOffDiagJacobian( unsigned int jvar 
     if ( jvar == _micro_disp_gradient_var[j] )
       return computeQpJacobianMicroDisplacementGradient( j );
 
-  /* mooseError( "Jacobian for unknown variable requested" ); */
   return 0.0;
 }
 
@@ -83,12 +79,6 @@ GradientEnhancedMicromorphicDamage::computeQpJacobianDisplacement( unsigned int 
 Real
 GradientEnhancedMicromorphicDamage::computeQpJacobianMicroDisplacementGradient( unsigned int comp_j )
 {
-  /* Real df_dw_j = -1 * _dk_local_dw[_qp][comp_j] * _phi[_j][_qp]; */
-
-  /* for ( int K = 0; K < 3; K++ ) */
-  /*   df_dw_j += -1 * _dk_local_dgrad_w[_qp][comp_j][K] * _grad_phi_undisplaced[_j][_qp]( K ); */
-
-  /* return _test[_i][_qp] * df_dw_j; */
 
   return 0;
 }
