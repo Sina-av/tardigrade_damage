@@ -5,16 +5,16 @@
 
 class CouplingForce;
 
-template <>
-InputParameters validParams<CouplingForce>();
+//template <>
+//InputParameters validParams<CouplingForce>();
 
 class CouplingForce : public NodalKernel{
 
     public:
 
-        static InputParameters validParams();
-
         CouplingForce( const InputParameters &parameters );
+
+        static InputParameters validParams();
 
     protected:
 

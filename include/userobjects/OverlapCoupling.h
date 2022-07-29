@@ -13,13 +13,15 @@
 
 class OverlapCoupling;
 
-template<>
-InputParameters validParams<GeneralUserObject>( );
+//template<>
+//InputParameters validParams<GeneralUserObject>( );
 
 class OverlapCoupling : public GeneralUserObject {
 
     public:
         OverlapCoupling( const InputParameters & parameters );
+
+	static InputParameters validParams();
 
         virtual void initialize( ) override;
 

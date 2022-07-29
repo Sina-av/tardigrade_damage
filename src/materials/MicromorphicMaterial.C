@@ -18,10 +18,12 @@
 
 registerMooseObject("tardigradeApp", MicromorphicMaterial);
 
-template<>
-InputParameters
-validParams<MicromorphicMaterial>(){
-    InputParameters params = validParams<Material>();
+//template<>
+//InputParameters
+//validParams<MicromorphicMaterial>()
+InputParameters MicromorphicMaterial::validParams(){
+    //InputParameters params = validParams<Material>();
+    InputParameters params = Material::validParams();
 
     // Vectors of material properties
     params.addRequiredParam<std::vector<Real>>(

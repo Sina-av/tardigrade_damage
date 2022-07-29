@@ -3,7 +3,7 @@
 //Register the object
 registerMooseObject( "tardigradeApp", CouplingForce );
 
-defineLegacyParams(CouplingForce);
+// defineLegacyParams(CouplingForce);
 
 InputParameters
 CouplingForce::validParams( ){

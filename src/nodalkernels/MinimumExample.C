@@ -2,7 +2,7 @@
 
 registerMooseObject("MooseApp", MinimumExample);
 
-defineLegacyParams(MinimumExample);
+//defineLegacyParams(MinimumExample);
 
 InputParameters
 MinimumExample::validParams()

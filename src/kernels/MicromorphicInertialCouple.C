@@ -18,10 +18,12 @@
 //We define the valid parameters for this kernel and their default values
 registerMooseObject("tardigradeApp", MicromorphicInertialCouple);
 
-template<>
-InputParameters
-validParams< MicromorphicInertialCouple >( ){
-    InputParameters params = validParams< Kernel >( );
+//template<>
+//InputParameters
+//validParams< MicromorphicInertialCouple >( )
+InputParameters MicromorphicInertialCouple::validParams()
+{
+    InputParameters params =  Kernel ::validParams( );
     params.set< bool >( "use_displaced_mesh" ) = false;
     params.addRequiredParam< int >( "component_i", "The i component of the inertial couple tensor" );
     params.addRequiredParam< int >( "component_j", "The j component of the inertial couple tensor" );

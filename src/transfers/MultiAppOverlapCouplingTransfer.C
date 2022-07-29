@@ -5,10 +5,12 @@
 
 registerMooseObject( "tardigradeApp", MultiAppOverlapCouplingTransfer );
 
-defineLegacyParams( MultiAppTransfer );
+//defineLegacyParams( MultiAppTransfer );
 
-template< >
-InputParameters validParams< MultiAppOverlapCouplingTransfer >( ){
+//template< >
+//InputParameters validParams< MultiAppOverlapCouplingTransfer >( )
+InputParameters MultiAppOverlapCouplingTransfer::validParams()
+{
 
     InputParameters params = MultiAppTransfer::validParams( );
 

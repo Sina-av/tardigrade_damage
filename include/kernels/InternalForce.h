@@ -24,9 +24,9 @@
 
 //Forward declarations
 class InternalForce;
-
-template <>
-InputParameters validParams<InternalForce>();
+//
+//template <>
+//InputParameters validParams<InternalForce>();
 
 class InternalForce : public Kernel{
     /*!
@@ -46,6 +46,8 @@ class InternalForce : public Kernel{
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         //The constructor definition
         InternalForce(const InputParameters & parameters);
+
+	static InputParameters validParams();
 
     protected:
         //The residual at a quadrature point.

@@ -7,8 +7,8 @@
 
     class MultiAppOverlapCouplingTransfer;
 
-    template <>
-    InputParameters validParams< MultiAppOverlapCouplingTransfer >( );
+//    template <>
+//    InputParameters validParams< MultiAppOverlapCouplingTransfer >( );
 
     /*!
      * Copies attributes from an overlap coupling user object in the main domain
@@ -20,6 +20,8 @@
         public:
 
             MultiAppOverlapCouplingTransfer( const InputParameters & parameters );
+
+	    static InputParameters validParams();
 
             virtual void execute( ) override;
 

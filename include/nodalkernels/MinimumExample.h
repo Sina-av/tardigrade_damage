@@ -6,8 +6,8 @@
 // Forward Declarations
 class MinimumExample;
 
-template <>
-InputParameters validParams<MinimumExample>();
+//template <>
+//InputParameters validParams<MinimumExample>();
 
 /**
  * Represents the rate in a simple ODE of du/dt = rate

@@ -17,10 +17,12 @@
 //We define the valid parameters for this kernel and their default values
 registerMooseObject("tardigradeApp", MicromorphicInertialForce);
 
-template<>
-InputParameters
-validParams< MicromorphicInertialForce >( ){
-    InputParameters params = validParams< Kernel >( );
+//template<>
+//InputParameters
+//validParams< MicromorphicInertialForce >( )
+InputParameters MicromorphicInertialForce::validParams()
+{
+    InputParameters params =  Kernel ::validParams( );
     params.set< bool >( "use_displaced_mesh" ) = false;
     params.addRequiredParam< int >( "component", "The component of the inertial force vector" );
     params.addRequiredParam< int >( "dof_num",   "The degree of freedom to use for the diagonal jacobian calculation" );

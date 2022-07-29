@@ -22,8 +22,8 @@
 class MicromorphicMaterial;
 class Function;
 
-template <>
-InputParameters validParams<MicromorphicMaterial>();
+//template <>
+//InputParameters validParams<MicromorphicMaterial>();
 
 class MicromorphicMaterial : public Material{
     /*!
@@ -41,6 +41,8 @@ class MicromorphicMaterial : public Material{
     public:
         EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         MicromorphicMaterial(const InputParameters &parameters);
+
+	static InputParameters validParams();
 
     protected:
         virtual void initQpStatefulProperties() override;
