@@ -1,22 +1,19 @@
 #pragma once
 #include "InternalForce.h"
 
-//Forward declarations
-class GradientEnhancedDamagedInternalForce;
+class GradientEnhancedDamagedInternalForce : public InternalForce
+{
+public:
+  GradientEnhancedDamagedInternalForce(const InputParameters & parameters);
 
-template <>
-InputParameters validParams<GradientEnhancedDamagedInternalForce>();
+  static InputParameters validParams();
 
-class GradientEnhancedDamagedInternalForce: public InternalForce{
-    public:
-      GradientEnhancedDamagedInternalForce(const InputParameters & parameters);
+protected:
+  virtual Real computeQpOffDiagJacobian(unsigned int jvar) override;
 
-    protected:
+  // The MOOSE variable number of the nonlocal damage variable
+  unsigned int _nonlocal_damage_var;
 
-      virtual Real computeQpOffDiagJacobian(unsigned int jvar) override; 
-
-      /// The MOOSE variable number of the nonlocal damage variable
-      unsigned int _nonlocal_damage_var;
-
-      const MaterialProperty< Real > & _domega_dk;
+  const MaterialProperty<Real> & _mat_omega;
+  const MaterialProperty<Real> & _domega_dk;
 };

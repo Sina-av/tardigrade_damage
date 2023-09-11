@@ -1,21 +1,18 @@
 #pragma once
 #include "InternalCouple.h"
 
-//Forward declarations
-class GradientEnhancedDamagedInternalCouple;
+class GradientEnhancedDamagedInternalCouple : public InternalCouple
+{
+public:
+  GradientEnhancedDamagedInternalCouple(const InputParameters & parameters);
 
-template <>
-InputParameters validParams<GradientEnhancedDamagedInternalCouple>();
+  static InputParameters validParams();
 
-class GradientEnhancedDamagedInternalCouple: public InternalCouple{
-    public:
-      GradientEnhancedDamagedInternalCouple(const InputParameters & parameters);
+protected:
+  virtual Real computeQpOffDiagJacobian(unsigned int jvar) override;
+  // The MOOSE variable number of the nonlocal damage variable
+  unsigned int _nonlocal_damage_var;
 
-    protected:
-
-      virtual Real computeQpOffDiagJacobian(unsigned int jvar) override; 
-      /// The MOOSE variable number of the nonlocal damage variable
-      unsigned int _nonlocal_damage_var;
-
-      const MaterialProperty< Real > & _domega_dk;
+	const MaterialProperty<Real> & _mat_omega;
+  const MaterialProperty<Real> & _domega_dk;
 };
