@@ -24,8 +24,7 @@ copyVecVecToMatrix(const vecVecReal & vecvec)
 };
 
 template <int nRows, int nCols>
-auto copyMatrixToVecVec = [](const Eigen::Matrix<Real, nRows, nCols, Eigen::RowMajor> & theMatrix)
-{
+auto copyMatrixToVecVec = [](const Eigen::Matrix<Real, nRows, nCols, Eigen::RowMajor> & theMatrix) {
   vecVecReal theVecVec(nRows);
   for (int i = 0; i < nRows; i++)
   {
@@ -473,15 +472,14 @@ GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties()
   /* const auto damageResult = damage.computeDamage(alphaDLocalOld, alphaDNonLocal, deltaFp); */
   // alphaDLocal = damageResult.alphaLocal;
 
-  // TODO:
   // Current value of plastic deformation gradient
-  const Fastor::Tensor<double, 3, 3> Fastor_Fp(Fp_np.data());
-  Fastor::Tensor<double, 3, 3> Fastor_I;
+  const Tensor33R Fastor_Fp(Fp_np.data());
+  Tensor33R Fastor_I;
   Fastor_I.eye();
-  const Fastor::Tensor<double, 3, 3> Fastor_Ep =
+  const Tensor33R Fastor_Ep =
       0.5 * (Fastor::einsum<Index<0, 1>, Index<0, 2>>(Fastor_Fp, Fastor_Fp) - Fastor_I);
 
-  Fastor::Tensor<double, 3, 3, 3, 3> Fastor_dEp_dFp;
+  Tensor3333R Fastor_dEp_dFp;
   for (int i1 = 0; i1 < 3; i1++)
     for (int j1 = 0; j1 < 3; j1++)
       for (int k1 = 0; k1 < 3; k1++)
@@ -489,8 +487,7 @@ GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties()
           Fastor_dEp_dFp(i1, j1, k1, l1) =
               0.5 * (Fastor_Fp(k1, j1) * Fastor_I(i1, l1) + Fastor_Fp(k1, i1) * Fastor_I(j1, l1));
 
-  Fastor::Tensor<double, 3, 3> Fastor_dev_Ep =
-      Fastor_Ep - 1. / 3. * Fastor::trace(Fastor_Ep) * Fastor_I;
+  Tensor33R Fastor_dev_Ep = Fastor_Ep - 1. / 3. * Fastor::trace(Fastor_Ep) * Fastor_I;
   double norm_dev_Ep = Fastor::norm(Fastor_dev_Ep);
 
   alphaDLocal = norm_dev_Ep;
@@ -498,12 +495,7 @@ GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties()
   if (MooseUtils::absoluteFuzzyEqual(norm_dev_Ep, 0))
     norm_dev_Ep = libMesh::TOLERANCE * libMesh::TOLERANCE;
 
-  // Fastor::Tensor<double, 3, 3> Fastor_dAlphaLocal_dEp = Fastor_dev_Ep * (1./
-  // Fastor::norm(Fastor_dev_Ep));
-  Fastor::Tensor<double, 3, 3> Fastor_dAlphaLocal_dEp = Fastor_dev_Ep / norm_dev_Ep;
-
-  // alphaDLocal = Fastor_Ep(1,1);
-  // Fastor::Tensor<double, 3, 3> Fastor_dAlphaLocal_dEp = {{0, 0, 0}, {0, 1, 0}, {0, 0, 0}};
+  Tensor33R Fastor_dAlphaLocal_dEp = Fastor_dev_Ep / norm_dev_Ep;
 
   // alphaDLocal = alphaDLocalOld + deltaFp(1, 1) - 1.;
   // Fastor::Tensor<double, 3, 3> Fastor_dAlphaLocal_dDeltaFp = {{0, 0, 0}, {0, 1, 0}, {0, 0, 0}};
@@ -512,17 +504,17 @@ GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties()
   // const Vector9d dAlphaLocal_total_dFp = {0, 0, 0, 0, 1, 0, 0, 0, 0};
   // const Vector9d dAlphaLocal_total_dF = dAlphaLocal_total_dFp.transpose() * dFp_np_dF;
 
-  Fastor::Tensor<double, 3, 3, 3, 3> Fastor_dFp_dF;
+  Tensor3333R Fastor_dFp_dF;
   for (int i1 = 0; i1 < 3; i1++)
     for (int j1 = 0; j1 < 3; j1++)
       for (int k1 = 0; k1 < 3; k1++)
         for (int l1 = 0; l1 < 3; l1++)
           Fastor_dFp_dF(i1, j1, k1, l1) = dFp_np_dF(3 * i1 + j1, 3 * k1 + l1);
 
-  const Fastor::Tensor<double, 3, 3> Fastor_Fp_n(Fp_n.data());
-  const Fastor::Tensor<double, 3, 3> Fastor_Fp_n_inv = Fastor::inverse(Fastor_Fp_n);
+  Tensor33R Fastor_Fp_n(Fp_n.data());
+  Tensor33R Fastor_Fp_n_inv = Fastor::inverse(Fastor_Fp_n);
 
-  Fastor::Tensor<double, 3, 3, 3, 3> Fastor_dDeltaFp_dF =
+  Tensor3333R Fastor_dDeltaFp_dF =
       Fastor::einsum<Index<0, 1, 2, 3>, Index<1, 4>, OIndex<0, 4, 2, 3>>(Fastor_dFp_dF,
                                                                          Fastor_Fp_n_inv);
 
@@ -530,7 +522,7 @@ GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties()
   //    Fastor::einsum<Index<0, 1>, Index<0, 1, 2, 3>>(Fastor_dAlphaLocal_dDeltaFp,
   //                                                   Fastor_dDeltaFp_dF);
 
-  Fastor::Tensor<double, 3, 3> Fastor_dAlphaLocal_dF =
+  Tensor33R Fastor_dAlphaLocal_dF =
       Fastor::einsum<Index<0, 1>, Index<0, 1, 2, 3>, Index<2, 3, 4, 5>, OIndex<4, 5>>(
           Fastor_dAlphaLocal_dEp, Fastor_dEp_dFp, Fastor_dFp_dF);
 
