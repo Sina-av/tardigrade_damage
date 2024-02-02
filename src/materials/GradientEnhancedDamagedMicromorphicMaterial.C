@@ -551,6 +551,12 @@ GradientEnhancedDamagedMicromorphicMaterial::computeQpProperties()
   _mat_omega[_qp] = omega;
   _domega_dk[_qp] = 1 / softeningModulus * std::exp(-alphaDNonLocal / softeningModulus);
 
+	if ( maxDamage < 1e-8 ) {
+		omega = 0.;
+		_mat_omega[_qp] = 0.;
+		_domega_dk[_qp] = 0.;
+	}
+
   Vector9d dOmega_dDeformationGradient = Vector9d::Zero();
 
   // +++++++++++++++++++++++++++++++++++

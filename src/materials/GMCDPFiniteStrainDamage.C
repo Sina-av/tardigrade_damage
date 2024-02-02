@@ -1,4 +1,5 @@
 #include "GMCDPFiniteStrainDamage.h"
+#include <iostream>
 
 namespace Marmot::Materials
 {
