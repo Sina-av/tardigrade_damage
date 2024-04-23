@@ -48,7 +48,6 @@ singularity exec --env LD_LIBRARY_PATH=/projects/tardigrade/build/_deps/tardigra
 #!/bin/bash
 #SBATCH --job-name=L
 #SBATCH --mail-type=END,FAIL            
-#SBATCH --mail-user=abrari@stanford.edu 
 #SBATCH --nodes=4
 #SBATCH --mem-per-cpu=8000mb
 #SBATCH --ntasks-per-node=32
@@ -59,7 +58,6 @@ singularity exec --env LD_LIBRARY_PATH=/projects/tardigrade/build/_deps/tardigra
 echo "Date              = $(date)"
 echo "Hostname          = $(hostname -s)"
 echo "Working Directory = $(pwd)"
-echo ""
 echo "Number of Nodes Allocated      = $SLURM_JOB_NUM_NODES"
 echo "Number of Tasks Allocated      = $SLURM_NTASKS"
 echo "Number of Cores/Task Allocated = $SLURM_CPUS_PER_TASK"
