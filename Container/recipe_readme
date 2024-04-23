@@ -1,0 +1,82 @@
+################# Mar 2024
+
+1) First run a recipe file to make an empty container in sandbox mode:
+SINGULARITY_TMPDIR=/home/abrari SINGULARITY_CACHEDIR=/home/abrari/ sudo -E singularity build --sandbox tardigrade.sbx recipe_conda.def
+
+2) Enter the sandbox image and install conda:
+sudo singularity shell --writable tardigrade.sbx
+
+3) Build Tardigrade:
+conda activate /root/miniforge/envs/tardigrade-env
+cd /projects/tardigrade/build
+cmake .. -DTARDIGRADE_BUILD_PYTHON_BINDINGS=OFF
+make -j 30
+
+4) Run the ctest:
+LD_LIBRARY_PATH=/projects/tardigrade/build/_deps/tardigrade_micromorphic_element-build/src/cpp ctest -v
+
+5) Move the Lshaped panel input and mesh files to a directory inside the container and run the test:
+LD_LIBRARY_PATH=/projects/tardigrade/build/_deps/tardigrade_micromorphic_element-build/src/cpp ../build/tardigrade-opt -i Lshape.i
+
+################# Apr 2024
+
+1) First run a recipe file to make an empty container in sandbox mode:
+time SINGULARITY_TMPDIR=/home/abrari SINGULARITY_CACHEDIR=/home/abrari/ sudo -E singularity build --sandbox tardigrade.sbx recipe.def
+
+2) Enter the sandbox image and install conda:
+sudo singularity shell --writable tardigrade.sbx
+
+3) Build Tardigrade:
+cd /projects/tardigrade/build
+cmake .. -DTARDIGRADE_BUILD_PYTHON_BINDINGS=OFF
+make -j 30
+
+4) Run the ctest:
+LD_LIBRARY_PATH=/projects/tardigrade/build/_deps/tardigrade_micromorphic_element-build/src/cpp ctest -v
+cd /projects/tardigrade/build
+
+5) Change sbx to simg
+SINGULARITY_TMPDIR=/home/abrari/ sudo -E singularity build tardigrade.simg tardigrade.sbx/
+
+6) Test the container from outside.
+ 	- Example:
+singularity exec --env LD_LIBRARY_PATH=/projects/tardigrade/build/_deps/tardigrade_micromorphic_element-build/src/cpp ~/tardigrade_singularity/2024/Final/tardigrade.simg /projects/tardigrade/build/tardigrade-opt -i Lshape.i
+
+7) Move the container to Sherlock:
+	- Example Sherlock file is as follows (note the openmpi/3.1.2):
+
+#!/bin/bash
+#SBATCH --job-name=L
+#SBATCH --mail-type=END,FAIL            
+#SBATCH --mail-user=abrari@stanford.edu 
+#SBATCH --nodes=4
+#SBATCH --mem-per-cpu=8000mb
+#SBATCH --ntasks-per-node=32
+#SBATCH --time=00:10:00                 
+#SBATCH --output=L_%j.log         
+#SBATCH -p serc,cee,normal
+
+echo "Date              = $(date)"
+echo "Hostname          = $(hostname -s)"
+echo "Working Directory = $(pwd)"
+echo ""
+echo "Number of Nodes Allocated      = $SLURM_JOB_NUM_NODES"
+echo "Number of Tasks Allocated      = $SLURM_NTASKS"
+echo "Number of Cores/Task Allocated = $SLURM_CPUS_PER_TASK"
+
+module load openmpi/3.1.2
+
+export OMPI_MCA_opal_cuda_support=0
+
+export MOOSEAPP=/projects/tardigrade/build/tardigrade-opt
+export INP=Lshape.i
+export OUTDIR=$SCRATCH/tardigrade_output
+
+set -x
+
+srun \
+  apptainer exec --env \
+  LD_LIBRARY_PATH=/projects/tardigrade/build/_deps/tardigrade_micromorphic_element-build/src/cpp \
+  $SCRATCH/tardigrade.simg \
+  $MOOSEAPP -i $INP \
+  Outputs/file_base=${OUTDIR}/L > L.log

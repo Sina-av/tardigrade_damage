@@ -1,0 +1,33 @@
+Bootstrap: docker
+From: continuumio/miniconda3
+
+%setup
+    # THESE ARE DIRECTORIES REQUIRED FOR COMMON HPC BINDS
+    mkdir $SINGULARITY_ROOTFS/scratch
+    mkdir $SINGULARITY_ROOTFS/data
+
+    # THIS IS THE DIRECTORY FOR ALL MOOSE RELATED BINARIES
+    mkdir $SINGULARITY_ROOTFS/projects
+
+%files
+    environment.yml
+
+%environment
+
+%post
+    ENV_NAME=$(head -1 environment.yml | cut -d' ' -f2)
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> $APPTAINER_ENVIRONMENT
+    echo "conda activate $ENV_NAME" >> $APPTAINER_ENVIRONMENT
+
+    . /opt/conda/etc/profile.d/conda.sh
+    conda env create -f environment.yml -p /opt/conda/envs/$ENV_NAME
+    conda clean --all
+		
+		cd $SINGULARITY_ROOTFS/projects
+		git clone https://github.com/UCBoulder/tardigrade.git
+		
+		cd tardigrade
+		mkdir build
+
+%runscript
+    exec "$@"
